@@ -1,93 +1,94 @@
-from google.colab import drive
-drive.mount('/content/drive')
-
-import zipfile, os
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report, roc_curve, auc
+import warnings
+warnings.filterwarnings('ignore')
 
-with zipfile.ZipFile('/content/drive/MyDrive/Archive.zip', 'r') as z:
-    z.extractall('/content/chest_xray')
+data = pd.read_csv('/content/bank_data/bank-data/bank-full.csv', sep=';')
 
-base = '/content/chest_xray'
-for folder in os.listdir(base):
-    path = os.path.join(base, folder)
-    if os.path.isdir(path) and 'train' in os.listdir(path):
-        base = path
-        break
+print(data.shape)
+print(data.head())
+print(data.dtypes)
+print(data['y'].value_counts())
+print(data.isnull().sum())
 
-train_dir = base + '/train'
-test_dir = base + '/test'
-val_dir = base + '/val'
-
-train_datagen = ImageDataGenerator(
-    rescale=1./255,
-    horizontal_flip=True,
-    rotation_range=10,
-    zoom_range=0.1
-)
-test_datagen = ImageDataGenerator(rescale=1./255)
-val_datagen = ImageDataGenerator(rescale=1./255)
-
-train_data = train_datagen.flow_from_directory(train_dir, target_size=(150,150), batch_size=32, class_mode='binary')
-test_data = test_datagen.flow_from_directory(test_dir, target_size=(150,150), batch_size=32, class_mode='binary', shuffle=False)
-val_data = val_datagen.flow_from_directory(val_dir, target_size=(150,150), batch_size=32, class_mode='binary')
-
-print(train_data.class_indices)
-
-imgs, labels = next(train_data)
-plt.figure(figsize=(10,4))
-for i in range(6):
-    plt.subplot(2,3,i+1)
-    plt.imshow(imgs[i])
-    plt.title("Pneumonia" if labels[i]==1 else "Normal")
-    plt.axis('off')
-plt.tight_layout()
+plt.figure(figsize=(5,4))
+data['y'].value_counts().plot(kind='bar', color=['steelblue','salmon'])
+plt.title('Subscribed or Not')
+plt.xticks(rotation=0)
 plt.show()
-
-model = Sequential()
-model.add(Conv2D(32, (3,3), activation='relu', input_shape=(150,150,3)))
-model.add(MaxPooling2D(2,2))
-model.add(Conv2D(64, (3,3), activation='relu'))
-model.add(MaxPooling2D(2,2))
-model.add(Conv2D(128, (3,3), activation='relu'))
-model.add(MaxPooling2D(2,2))
-model.add(Flatten())
-model.add(Dense(128, activation='relu'))
-model.add(Dropout(0.4))
-model.add(Dense(1, activation='sigmoid'))
-
-model.summary()
-
-model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-
-history = model.fit(train_data, epochs=15, validation_data=val_data)
 
 plt.figure(figsize=(12,4))
 plt.subplot(1,2,1)
-plt.plot(history.history['accuracy'], label='train')
-plt.plot(history.history['val_accuracy'], label='val')
-plt.title('Accuracy')
+data[data['y']=='yes']['age'].hist(bins=20, alpha=0.6, color='green', label='yes')
+data[data['y']=='no']['age'].hist(bins=20, alpha=0.6, color='red', label='no')
+plt.title('Age Distribution')
 plt.legend()
 plt.subplot(1,2,2)
-plt.plot(history.history['loss'], label='train')
-plt.plot(history.history['val_loss'], label='val')
-plt.title('Loss')
+data.groupby('education')['y'].value_counts().unstack().plot(kind='bar', ax=plt.gca())
+plt.title('Education vs Subscription')
+plt.tight_layout()
+plt.show()
+
+df = data.copy()
+encoder = LabelEncoder()
+for col in df.select_dtypes(include='object').columns:
+    df[col] = encoder.fit_transform(df[col])
+
+plt.figure(figsize=(12,8))
+sns.heatmap(df.corr(), annot=True, fmt='.2f', cmap='coolwarm')
+plt.title('Correlation Between Features')
+plt.show()
+
+X = df.drop('y', axis=1)
+y = df['y']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+sc = StandardScaler()
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform(X_test)
+
+lr = LogisticRegression(max_iter=1000)
+lr.fit(X_train, y_train)
+
+y_pred = lr.predict(X_test)
+y_prob = lr.predict_proba(X_test)[:,1]
+
+print("Accuracy:", round(accuracy_score(y_test, y_pred)*100, 2), "%")
+print(classification_report(y_test, y_pred, target_names=['No','Yes']))
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(5,4))
+sns.heatmap(cm, annot=True, fmt='d', xticklabels=['No','Yes'], yticklabels=['No','Yes'], cmap='Blues')
+plt.title('Confusion Matrix')
+plt.ylabel('Actual')
+plt.xlabel('Predicted')
+plt.show()
+
+fpr, tpr, _ = roc_curve(y_test, y_prob)
+roc_auc = auc(fpr, tpr)
+plt.figure(figsize=(6,5))
+plt.plot(fpr, tpr, color='blue', label='AUC = ' + str(round(roc_auc, 2)))
+plt.plot([0,1], [0,1], 'k--')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
 plt.legend()
 plt.show()
 
-loss, acc = model.evaluate(test_data)
-print("Test Accuracy:", round(acc*100, 2), "%")
+coef_df = pd.DataFrame({
+    'Feature': X.columns,
+    'Coefficient': lr.coef_[0]
+}).sort_values('Coefficient', ascending=False)
 
-preds = (model.predict(test_data) > 0.5).astype(int).flatten()
-print(classification_report(test_data.classes, preds, target_names=['Normal','Pneumonia']))
-
-cm = confusion_matrix(test_data.classes, preds)
-sns.heatmap(cm, annot=True, fmt='d', xticklabels=['Normal','Pneumonia'], yticklabels=['Normal','Pneumonia'])
-plt.title('Confusion Matrix')
+plt.figure(figsize=(10,5))
+plt.barh(coef_df['Feature'], coef_df['Coefficient'], color='steelblue')
+plt.axvline(0, color='black', linestyle='--')
+plt.title('Feature Importance')
 plt.show()
