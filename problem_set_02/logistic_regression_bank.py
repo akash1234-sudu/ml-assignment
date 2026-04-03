@@ -9,69 +9,73 @@ from sklearn.metrics import accuracy_score, confusion_matrix, classification_rep
 import warnings
 warnings.filterwarnings('ignore')
 
-df = pd.read_csv('bank.csv', sep=';')
+data = pd.read_csv('/content/bank_data/bank-data/bank-full.csv', sep=';')
 
-print(df.shape)
-print(df.head())
-print(df.isnull().sum())
-print(df['y'].value_counts())
+print(data.shape)
+print(data.head())
+print(data.dtypes)
+print(data['y'].value_counts())
+print(data.isnull().sum())
 
 plt.figure(figsize=(5,4))
-df['y'].value_counts().plot(kind='bar', color=['steelblue','salmon'])
+data['y'].value_counts().plot(kind='bar', color=['steelblue','salmon'])
 plt.title('Subscribed or Not')
 plt.xticks(rotation=0)
 plt.show()
 
 plt.figure(figsize=(12,4))
 plt.subplot(1,2,1)
-df[df['y']=='yes']['age'].hist(alpha=0.6, label='yes', color='green', bins=20)
-df[df['y']=='no']['age'].hist(alpha=0.6, label='no', color='red', bins=20)
+data[data['y']=='yes']['age'].hist(bins=20, alpha=0.6, color='green', label='yes')
+data[data['y']=='no']['age'].hist(bins=20, alpha=0.6, color='red', label='no')
+plt.title('Age Distribution')
 plt.legend()
-plt.title('Age vs Subscription')
-
 plt.subplot(1,2,2)
-df.groupby('education')['y'].value_counts().unstack().plot(kind='bar', ax=plt.gca())
+data.groupby('education')['y'].value_counts().unstack().plot(kind='bar', ax=plt.gca())
 plt.title('Education vs Subscription')
 plt.tight_layout()
 plt.show()
 
-df2 = df.copy()
-le = LabelEncoder()
-for col in df2.select_dtypes(include='object').columns:
-    df2[col] = le.fit_transform(df2[col])
+df = data.copy()
+encoder = LabelEncoder()
+for col in df.select_dtypes(include='object').columns:
+    df[col] = encoder.fit_transform(df[col])
 
 plt.figure(figsize=(12,8))
-sns.heatmap(df2.corr(), annot=True, fmt='.2f', cmap='coolwarm')
-plt.title('Correlation Heatmap')
+sns.heatmap(df.corr(), annot=True, fmt='.2f', cmap='coolwarm')
+plt.title('Correlation Between Features')
 plt.show()
 
-X = df2.drop('y', axis=1)
-y = df2['y']
+X = df.drop('y', axis=1)
+y = df['y']
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-scaler = StandardScaler()
-X_train = scaler.fit_transform(X_train)
-X_test = scaler.transform(X_test)
+sc = StandardScaler()
+X_train = sc.fit_transform(X_train)
+X_test = sc.transform(X_test)
 
-model = LogisticRegression(max_iter=1000, random_state=42)
-model.fit(X_train, y_train)
+lr = LogisticRegression(max_iter=1000)
+lr.fit(X_train, y_train)
 
-y_pred = model.predict(X_test)
-y_prob = model.predict_proba(X_test)[:,1]
+y_pred = lr.predict(X_test)
+y_prob = lr.predict_proba(X_test)[:,1]
 
-print("Accuracy:", accuracy_score(y_test, y_pred))
+print("Accuracy:", round(accuracy_score(y_test, y_pred)*100, 2), "%")
 print(classification_report(y_test, y_pred, target_names=['No','Yes']))
 
 cm = confusion_matrix(y_test, y_pred)
-sns.heatmap(cm, annot=True, fmt='d', xticklabels=['No','Yes'], yticklabels=['No','Yes'])
+plt.figure(figsize=(5,4))
+sns.heatmap(cm, annot=True, fmt='d', xticklabels=['No','Yes'], yticklabels=['No','Yes'], cmap='Blues')
 plt.title('Confusion Matrix')
+plt.ylabel('Actual')
+plt.xlabel('Predicted')
 plt.show()
 
 fpr, tpr, _ = roc_curve(y_test, y_prob)
 roc_auc = auc(fpr, tpr)
-plt.plot(fpr, tpr, label=f'AUC = {roc_auc:.2f}')
-plt.plot([0,1],[0,1],'--', color='gray')
+plt.figure(figsize=(6,5))
+plt.plot(fpr, tpr, color='blue', label='AUC = ' + str(round(roc_auc, 2)))
+plt.plot([0,1], [0,1], 'k--')
 plt.xlabel('False Positive Rate')
 plt.ylabel('True Positive Rate')
 plt.title('ROC Curve')
@@ -79,12 +83,12 @@ plt.legend()
 plt.show()
 
 coef_df = pd.DataFrame({
-    'Feature': df2.drop('y', axis=1).columns,
-    'Coefficient': model.coef_[0]
+    'Feature': X.columns,
+    'Coefficient': lr.coef_[0]
 }).sort_values('Coefficient', ascending=False)
 
 plt.figure(figsize=(10,5))
-plt.barh(coef_df['Feature'], coef_df['Coefficient'])
+plt.barh(coef_df['Feature'], coef_df['Coefficient'], color='steelblue')
 plt.axvline(0, color='black', linestyle='--')
-plt.title('Feature Coefficients')
+plt.title('Feature Importance')
 plt.show()
