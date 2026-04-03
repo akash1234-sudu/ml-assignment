@@ -1,35 +1,35 @@
 # Bank Term Deposit Prediction - Logistic Regression
 
 ## Dataset
-Bank Marketing Dataset with 17 attributes like age, job, 
-marital status, balance etc. Target column is 'y' (yes/no).
+Bank Marketing Dataset with 17 attributes such as age, job, marital status, balance, education, and campaign details.  
+Target column is `y` (yes/no).
 
 ## What I did
-Explored the data first to understand the distribution.
-Then encoded categorical columns and scaled the features.
-Used Logistic Regression to predict if a customer will 
-subscribe to a term deposit or not.
+Explored the data to understand feature distribution and target classes.  
+Encoded categorical features, scaled numeric values, and trained a Logistic Regression model to predict whether a customer will subscribe to a term deposit.
 
 ## Preprocessing
-- Label Encoding for categorical columns
-- StandardScaler for feature scaling
-- 80/20 train test split
+- Label Encoding for categorical columns  
+- StandardScaler for feature scaling  
+- 80/20 train test split  
 
 ## Model
-Logistic Regression with max_iter=1000
+Logistic Regression with `max_iter=1000`
 
 ## Evaluation
-- Accuracy score
-- Classification report
-- Confusion matrix
-- ROC curve with AUC score
-- Feature coefficients
+- Accuracy score  
+- Classification report  
+- Confusion matrix  
+- ROC curve with AUC score  
+- Feature importance using coefficients  
+- Correlation heatmap  
 
 ## Result
-Duration of call and previous campaign outcome were 
-the most important features. Model performed well on test data.
+The model performed well on test data and identified important features affecting subscription prediction.
 
 ## How to run
-Make sure bank.csv is in the same folder then run:
+Make sure `bank-full.csv` is available, then install required libraries:
+
 pip install pandas scikit-learn matplotlib seaborn
-python logistic_regression_bank.py
+
+Run the notebook or script in Google Colab / Python environment.
