@@ -1,10 +1,6 @@
 from google.colab import drive
 drive.mount('/content/drive')
 
-import zipfile, os
-with zipfile.ZipFile("/content/drive/MyDrive/ml Assingment/Archive.zip", 'r') as z:
-    print(z.namelist()[:20])
-    
 import os
 import zipfile
 import numpy as np
